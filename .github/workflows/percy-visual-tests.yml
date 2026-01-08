@@ -1,0 +1,31 @@
+name: Percy Visual Regression Tests
+
+on:
+  push: # to activate workflow
+    branches:
+      - master
+      - main
+  schedule:
+    - cron: "0 15 * * *"
+  workflow_dispatch: # can be run manually from UI
+jobs:
+  percy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Run Percy snapshots
+        run: npm test
+        env:
+          PERCY_TOKEN: ${{ secrets.PERCY_TOKEN }}
+          BASE_URL: ${{ secrets.BASE_URL }}

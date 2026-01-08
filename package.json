@@ -1,0 +1,13 @@
+{
+    "name": "visual-tests",
+    "version": "1.0.0",
+    "type": "module",
+    "scripts": {
+        "test": "node visual-test.js"
+    },
+    "dependencies": {
+        "@percy/cli": "^1.29.0",
+        "dotenv": "^16.4.5",
+        "js-yaml": "^4.1.0"
+    }
+}
