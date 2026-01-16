@@ -96,13 +96,6 @@ const snapshotsData = {
     },
     // CSS скрывает лишнее
     percyCSS: "iframe, .cy-featured-posts, .cy-customers-archive, .cy-sticky-post, #onetrust-consent-sdk, #INDWrap, #chat-widget, .cy-animation-bar__progress-value, .cy-animation-number__value { display: none !important; }",
-    // Убираем тяжелые медиа-узлы до рендера
-    domTransformation: [
-      {
-        action: "remove",
-        selector: "iframe, video, audio, source[type^='video/']"
-      }
-    ],
   })),
 };
 
