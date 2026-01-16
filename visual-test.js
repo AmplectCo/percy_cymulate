@@ -122,21 +122,22 @@ try {
   // Исправленная команда запуска
   execSync(
     `npx percy snapshot ${tmpFile} ` +
-    `--network-idle-timeout=${NETWORK_TIMEOUT} ` + // Используем 60000ms
-    `--parallel-workers=${PARALLEL_WORKERS} `,     // Ограничиваем потоки
+    `--network-idle-timeout=${NETWORK_TIMEOUT} `, // Флаг parallel-workers УБРАН отсюда
     {
       stdio: "inherit",
       env: {
         ...process.env,
         PERCY_TOKEN: token,
+        // Передаем настройку потоков через переменную окружения — так Percy её поймет
+        PERCY_PARALLEL_WORKERS: PARALLEL_WORKERS, 
       },
     }
   );
   console.log("✅ Percy completed successfully.");
 } catch (err) {
   console.error("❌ Percy failed:");
-  // execSync обычно выбрасывает ошибку с status code, message может быть скудным
   console.error(err.message);
+  process.exit(1); // Важно: завершаем процесс с ошибкой, чтобы GitHub Action пометил билд как failed
 }
 
 fs.unlinkSync(tmpFile);
