@@ -7,17 +7,10 @@ loadEnv();
 
 const baseUrl = process.env.BASE_URL;
 const token = process.env.PERCY_TOKEN;
+const PARALLEL_WORKERS = process.env.PERCY_PARALLEL_WORKERS || "2";
 
-// Настройки из ENV или дефолтные безопасные значения
-const PARALLEL_WORKERS = process.env.PERCY_PARALLEL_WORKERS || "2"; // 2 потока для стабильности WP
-const NETWORK_TIMEOUT = process.env.PERCY_NETWORK_IDLE_TIMEOUT || "60000"; // 60 секунд!
-
-if (!baseUrl) {
-  console.error("❌ BASE_URL is missing (not in .env or GitHub Secrets)");
-  process.exit(1);
-}
-if (!token) {
-  console.error("❌ PERCY_TOKEN is missing (not in .env or GitHub Secrets)");
+if (!baseUrl || !token) {
+  console.error("❌ BASE_URL or PERCY_TOKEN is missing.");
   process.exit(1);
 }
 
@@ -64,7 +57,7 @@ const fullUrls = urls.map((p) => {
   return u + p;
 });
 
-// Скрипт прокрутки оставил без изменений, он хороший
+// Скрипт прокрутки (Lazy loading)
 const waitForAssetsScript = `
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   const scrollStep = window.innerHeight || 800;
@@ -73,6 +66,7 @@ const waitForAssetsScript = `
     await sleep(100);
   }
   window.scrollTo(0, 0);
+  // Ждем картинки
   const images = Array.from(document.querySelectorAll('img'));
   await Promise.all(
     images.map((img) => {
@@ -84,60 +78,71 @@ const waitForAssetsScript = `
       });
     })
   );
-  await sleep(500);
-  if (document.fonts && document.fonts.ready) {
-    await document.fonts.ready;
-  }
+  await sleep(1000); // Чуть увеличил ожидание
 `;
 
-// Generate YAML for Percy
-const yamlData = {
-  version: 1,
+// --- ФАЙЛ 1: Список снимков (Snapshot List) ---
+// Убираем отсюда requestHeaders и version, оставляем только то, что касается конкретного URL
+const snapshotsData = {
   snapshots: fullUrls.map((u) => ({
     name: u,
     url: u,
-    widths: [1920, 414],
-    // Добавил скрытие iframes, они часто висят вечно
-    percyCSS: "iframe, .cy-featured-posts, .cy-customers-archive, .cy-sticky-post, #onetrust-consent-sdk, #INDWrap, #chat-widget, .cy-animation-bar__progress-value, .cy-animation-number__value { display: none !important; }",
-    browsers: ["chrome", "safari"],
+    // Эти настройки разрешены внутри снимка
     waitForTimeout: 5000, 
-    // Добавляем requestHeaders прямо в конфиг снапшота для надежности
-    requestHeaders: {
-        "User-Agent": "PercyBot/1.0"
-    },
     execute: {
       beforeSnapshot: waitForAssetsScript,
     },
+    // CSS можно оставить здесь или вынести в глобальный конфиг, оставим здесь для точности
+    percyCSS: "iframe, .cy-featured-posts, .cy-customers-archive, .cy-sticky-post, #onetrust-consent-sdk, #INDWrap, #chat-widget, .cy-animation-bar__progress-value, .cy-animation-number__value { display: none !important; }",
   })),
 };
 
-const tmpFile = "./urls.yml";
-fs.writeFileSync(tmpFile, yaml.dump(yamlData));
+// --- ФАЙЛ 2: Глобальная конфигурация (Global Config) ---
+// Сюда переносим User-Agent, таймауты и ширину
+const configData = {
+  version: 2,
+  snapshot: {
+    widths: [1920, 414],
+    browsers: ["chrome", "safari"]
+  },
+  discovery: {
+    // Вот где должны жить заголовки
+    userAgent: "PercyBot/1.0",
+    networkIdleTimeout: 60000,
+    // Если нужно больше заголовков:
+    // requestHeaders: { "Authorization": "..." } 
+  }
+};
 
-console.log("🌍 Testing site:", baseUrl);
-console.log(`📝 ${fullUrls.length} URLs written to ${tmpFile}`);
-console.log(`⚙️ Config: Timeout=${NETWORK_TIMEOUT}ms, Workers=${PARALLEL_WORKERS}`);
+const snapshotsFile = "./snapshots.yml";
+const configFile = "./percy-config.yml";
+
+fs.writeFileSync(snapshotsFile, yaml.dump(snapshotsData));
+fs.writeFileSync(configFile, yaml.dump(configData));
+
+console.log(`📝 Generated ${snapshotsFile} and ${configFile}`);
+console.log(`🌍 Starting Percy with ${PARALLEL_WORKERS} workers...`);
 
 try {
-  // Исправленная команда запуска
+  // Запускаем Percy, указывая ДВА файла: список URL и файл настроек
   execSync(
-    `npx percy snapshot ${tmpFile} ` +
-    `--network-idle-timeout=${NETWORK_TIMEOUT} `, // Флаг parallel-workers УБРАН отсюда
+    `npx percy snapshot ${snapshotsFile} --config ${configFile}`, 
     {
       stdio: "inherit",
       env: {
         ...process.env,
         PERCY_TOKEN: token,
-        // Передаем настройку потоков через переменную окружения — так Percy её поймет
-        PERCY_PARALLEL_WORKERS: PARALLEL_WORKERS, 
+        PERCY_PARALLEL_WORKERS: PARALLEL_WORKERS,
       },
     }
   );
   console.log("✅ Percy completed successfully.");
 } catch (err) {
-  console.error("❌ Percy failed:");
-  console.error(err.message);
-  process.exit(1); // Важно: завершаем процесс с ошибкой, чтобы GitHub Action пометил билд как failed
+  console.error("❌ Percy failed.");
+  // process.exit(1) нужен, чтобы GitHub Action покраснел
+  process.exit(1);
+} finally {
+  // Чистим за собой
+  if (fs.existsSync(snapshotsFile)) fs.unlinkSync(snapshotsFile);
+  if (fs.existsSync(configFile)) fs.unlinkSync(configFile);
 }
-
-fs.unlinkSync(tmpFile);
