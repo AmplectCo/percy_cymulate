@@ -29,3 +29,4 @@ jobs:
         env:
           PERCY_TOKEN: ${{ secrets.PERCY_TOKEN }}
           BASE_URL: ${{ secrets.BASE_URL }}
+          PERCY_NETWORK_IDLE_WAIT_TIMEOUT: "60000"

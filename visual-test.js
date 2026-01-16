@@ -9,6 +9,8 @@ const baseUrl = process.env.BASE_URL;
 const token = process.env.PERCY_TOKEN;
 // Оставляем 2 потока для стабильности
 const PARALLEL_WORKERS = process.env.PERCY_PARALLEL_WORKERS || "2";
+const NETWORK_IDLE_WAIT_TIMEOUT =
+  process.env.PERCY_NETWORK_IDLE_WAIT_TIMEOUT || "60000";
 
 if (!baseUrl || !token) {
   console.error("❌ BASE_URL or PERCY_TOKEN is missing.");
@@ -118,6 +120,9 @@ fs.writeFileSync(configFile, yaml.dump(configData));
 
 console.log(`📝 Generated configs.`);
 console.log(`🌍 Starting Percy... Workers: ${PARALLEL_WORKERS}`);
+console.log(
+  `⏱️ Network idle wait timeout: ${NETWORK_IDLE_WAIT_TIMEOUT}ms`
+);
 
 try {
   // Используем ENV переменную для таймаута ожидания network idle
@@ -130,7 +135,7 @@ try {
         PERCY_TOKEN: token,
         PERCY_PARALLEL_WORKERS: PARALLEL_WORKERS,
         // Увеличиваем ожидание network idle (60 секунд)
-        PERCY_NETWORK_IDLE_WAIT_TIMEOUT: "60000"
+        PERCY_NETWORK_IDLE_WAIT_TIMEOUT: NETWORK_IDLE_WAIT_TIMEOUT
       },
     }
   );
