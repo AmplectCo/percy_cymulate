@@ -7,7 +7,7 @@ loadEnv();
 
 const baseUrl = process.env.BASE_URL;
 const token = process.env.PERCY_TOKEN;
-// Ставим 2 потока, чтобы не убить сервер и не словить 403 от Cloudflare
+// Оставляем 2 потока для стабильности
 const PARALLEL_WORKERS = process.env.PERCY_PARALLEL_WORKERS || "2";
 
 if (!baseUrl || !token) {
@@ -58,7 +58,7 @@ const fullUrls = urls.map((p) => {
   return u + p;
 });
 
-// Скрипт: скроллим страницу, чтобы прогрузить Lazy Load картинки
+// Скрипт прокрутки (без изменений)
 const waitForAssetsScript = `
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   const scrollStep = window.innerHeight || 800;
@@ -68,7 +68,6 @@ const waitForAssetsScript = `
   }
   window.scrollTo(0, 0);
   
-  // Ждем загрузки картинок
   const images = Array.from(document.querySelectorAll('img'));
   await Promise.all(
     images.map((img) => {
@@ -76,7 +75,7 @@ const waitForAssetsScript = `
       return new Promise((resolve) => {
         img.onload = resolve;
         img.onerror = resolve;
-        setTimeout(resolve, 5000); // Не ждем одну картинку дольше 5 сек
+        setTimeout(resolve, 5000); 
       });
     })
   );
@@ -88,11 +87,11 @@ const snapshotsData = {
   snapshots: fullUrls.map((u) => ({
     name: u,
     url: u,
-    waitForTimeout: 2000, // Небольшая пауза после загрузки перед снимком
+    waitForTimeout: 1000, 
     execute: {
       beforeSnapshot: waitForAssetsScript,
     },
-    // Скрываем тяжелые элементы, видео и чаты
+    // CSS скрывает лишнее
     percyCSS: "iframe, .cy-featured-posts, .cy-customers-archive, .cy-sticky-post, #onetrust-consent-sdk, #INDWrap, #chat-widget, .cy-animation-bar__progress-value, .cy-animation-number__value { display: none !important; }",
   })),
 };
@@ -105,8 +104,8 @@ const configData = {
     browsers: ["chrome", "safari"]
   },
   discovery: {
-    // ВАЖНО: Мы убрали отсюда networkIdleTimeout, так как он вызывал ошибку валидации.
-    // Задаем User-Agent для прохода через Cloudflare
+    // ВАЖНО: УБРАЛИ networkIdleTimeout ОТСЮДА!
+    // Оставляем только User-Agent для Cloudflare
     userAgent: "PercyBot/1.0",
   }
 };
@@ -121,15 +120,18 @@ console.log(`📝 Generated configs.`);
 console.log(`🌍 Starting Percy... Workers: ${PARALLEL_WORKERS}`);
 
 try {
-  // ВАЖНО: --network-idle-timeout здесь работает как "Максимальное время ожидания" (60 сек)
+  // Мы используем ENV переменную для таймаута, так как флаг может конфликтовать с конфигом
   execSync(
-    `npx percy snapshot ${snapshotsFile} --config ${configFile} --network-idle-timeout=60000`, 
+    `npx percy snapshot ${snapshotsFile} --config ${configFile}`, 
     {
       stdio: "inherit",
       env: {
         ...process.env,
         PERCY_TOKEN: token,
         PERCY_PARALLEL_WORKERS: PARALLEL_WORKERS,
+        // ВОТ ПРАВИЛЬНОЕ МЕСТО ДЛЯ ТАЙМАУТА:
+        // Устанавливаем 60 секунд (60000ms) глобального ожидания
+        PERCY_NETWORK_IDLE_TIMEOUT: "60000"
       },
     }
   );
