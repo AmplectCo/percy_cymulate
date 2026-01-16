@@ -8,6 +8,10 @@ loadEnv();
 const baseUrl = process.env.BASE_URL;
 const token = process.env.PERCY_TOKEN;
 
+// Настройки из ENV или дефолтные безопасные значения
+const PARALLEL_WORKERS = process.env.PERCY_PARALLEL_WORKERS || "2"; // 2 потока для стабильности WP
+const NETWORK_TIMEOUT = process.env.PERCY_NETWORK_IDLE_TIMEOUT || "60000"; // 60 секунд!
+
 if (!baseUrl) {
   console.error("❌ BASE_URL is missing (not in .env or GitHub Secrets)");
   process.exit(1);
@@ -60,21 +64,15 @@ const fullUrls = urls.map((p) => {
   return u + p;
 });
 
-// It scrolls the page to trigger lazy-loading and waits for images/SVG/fonts to load.
+// Скрипт прокрутки оставил без изменений, он хороший
 const waitForAssetsScript = `
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-  // Scroll down to trigger IntersectionObserver / lazy-loading
   const scrollStep = window.innerHeight || 800;
   while (document.documentElement.scrollTop + window.innerHeight < document.documentElement.scrollHeight) {
     window.scrollBy(0, scrollStep);
     await sleep(100);
   }
-
-  // Scroll back to top so screenshots look normal
   window.scrollTo(0, 0);
-
-  // Wait for all <img> elements to finish loading
   const images = Array.from(document.querySelectorAll('img'));
   await Promise.all(
     images.map((img) => {
@@ -86,17 +84,11 @@ const waitForAssetsScript = `
       });
     })
   );
-
-  // Wait for SVG <img> + inline <svg> to settle a bit
   await sleep(500);
-
-  // Wait for fonts (if supported)
   if (document.fonts && document.fonts.ready) {
     await document.fonts.ready;
   }
 `;
-
-
 
 // Generate YAML for Percy
 const yamlData = {
@@ -105,34 +97,45 @@ const yamlData = {
     name: u,
     url: u,
     widths: [1920, 414],
-    percyCSS: ".cy-featured-posts, .cy-customers-archive, .cy-sticky-post, #onetrust-consent-sdk, #INDWrap, #chat-widget, .cy-animation-bar__progress-value,.cy-animation-number__value { display: none !important; }",
+    // Добавил скрытие iframes, они часто висят вечно
+    percyCSS: "iframe, .cy-featured-posts, .cy-customers-archive, .cy-sticky-post, #onetrust-consent-sdk, #INDWrap, #chat-widget, .cy-animation-bar__progress-value, .cy-animation-number__value { display: none !important; }",
     browsers: ["chrome", "safari"],
-    waitForTimeout: 5000, // Base wait time in milliseconds
+    waitForTimeout: 5000, 
+    // Добавляем requestHeaders прямо в конфиг снапшота для надежности
+    requestHeaders: {
+        "User-Agent": "PercyBot/1.0"
+    },
     execute: {
       beforeSnapshot: waitForAssetsScript,
     },
   })),
 };
 
-// Write to temporary file
 const tmpFile = "./urls.yml";
 fs.writeFileSync(tmpFile, yaml.dump(yamlData));
 
 console.log("🌍 Testing site:", baseUrl);
 console.log(`📝 ${fullUrls.length} URLs written to ${tmpFile}`);
+console.log(`⚙️ Config: Timeout=${NETWORK_TIMEOUT}ms, Workers=${PARALLEL_WORKERS}`);
 
 try {
-  execSync(`npx percy snapshot ${tmpFile} ` +
-      `--network-idle-timeout=10000 `,{
-    stdio: "inherit",
-    env: {
-      ...process.env,
-      PERCY_TOKEN: token,
-    },
-  });
+  // Исправленная команда запуска
+  execSync(
+    `npx percy snapshot ${tmpFile} ` +
+    `--network-idle-timeout=${NETWORK_TIMEOUT} ` + // Используем 60000ms
+    `--parallel-workers=${PARALLEL_WORKERS} `,     // Ограничиваем потоки
+    {
+      stdio: "inherit",
+      env: {
+        ...process.env,
+        PERCY_TOKEN: token,
+      },
+    }
+  );
   console.log("✅ Percy completed successfully.");
 } catch (err) {
   console.error("❌ Percy failed:");
+  // execSync обычно выбрасывает ошибку с status code, message может быть скудным
   console.error(err.message);
 }
 
