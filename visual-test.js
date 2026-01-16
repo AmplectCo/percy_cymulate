@@ -7,6 +7,7 @@ loadEnv();
 
 const baseUrl = process.env.BASE_URL;
 const token = process.env.PERCY_TOKEN;
+// Ставим 2 потока, чтобы не убить сервер и не словить 403 от Cloudflare
 const PARALLEL_WORKERS = process.env.PERCY_PARALLEL_WORKERS || "2";
 
 if (!baseUrl || !token) {
@@ -57,7 +58,7 @@ const fullUrls = urls.map((p) => {
   return u + p;
 });
 
-// Скрипт прокрутки (Lazy loading)
+// Скрипт: скроллим страницу, чтобы прогрузить Lazy Load картинки
 const waitForAssetsScript = `
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   const scrollStep = window.innerHeight || 800;
@@ -66,7 +67,8 @@ const waitForAssetsScript = `
     await sleep(100);
   }
   window.scrollTo(0, 0);
-  // Ждем картинки
+  
+  // Ждем загрузки картинок
   const images = Array.from(document.querySelectorAll('img'));
   await Promise.all(
     images.map((img) => {
@@ -74,31 +76,28 @@ const waitForAssetsScript = `
       return new Promise((resolve) => {
         img.onload = resolve;
         img.onerror = resolve;
-        setTimeout(resolve, 5000);
+        setTimeout(resolve, 5000); // Не ждем одну картинку дольше 5 сек
       });
     })
   );
-  await sleep(1000); // Чуть увеличил ожидание
+  await sleep(1000); 
 `;
 
-// --- ФАЙЛ 1: Список снимков (Snapshot List) ---
-// Убираем отсюда requestHeaders и version, оставляем только то, что касается конкретного URL
+// --- ФАЙЛ 1: Список снимков ---
 const snapshotsData = {
   snapshots: fullUrls.map((u) => ({
     name: u,
     url: u,
-    // Эти настройки разрешены внутри снимка
-    waitForTimeout: 5000, 
+    waitForTimeout: 2000, // Небольшая пауза после загрузки перед снимком
     execute: {
       beforeSnapshot: waitForAssetsScript,
     },
-    // CSS можно оставить здесь или вынести в глобальный конфиг, оставим здесь для точности
+    // Скрываем тяжелые элементы, видео и чаты
     percyCSS: "iframe, .cy-featured-posts, .cy-customers-archive, .cy-sticky-post, #onetrust-consent-sdk, #INDWrap, #chat-widget, .cy-animation-bar__progress-value, .cy-animation-number__value { display: none !important; }",
   })),
 };
 
-// --- ФАЙЛ 2: Глобальная конфигурация (Global Config) ---
-// Сюда переносим User-Agent, таймауты и ширину
+// --- ФАЙЛ 2: Глобальный конфиг ---
 const configData = {
   version: 2,
   snapshot: {
@@ -106,11 +105,9 @@ const configData = {
     browsers: ["chrome", "safari"]
   },
   discovery: {
-    // Вот где должны жить заголовки
+    // ВАЖНО: Мы убрали отсюда networkIdleTimeout, так как он вызывал ошибку валидации.
+    // Задаем User-Agent для прохода через Cloudflare
     userAgent: "PercyBot/1.0",
-    networkIdleTimeout: 60000,
-    // Если нужно больше заголовков:
-    // requestHeaders: { "Authorization": "..." } 
   }
 };
 
@@ -120,13 +117,13 @@ const configFile = "./percy-config.yml";
 fs.writeFileSync(snapshotsFile, yaml.dump(snapshotsData));
 fs.writeFileSync(configFile, yaml.dump(configData));
 
-console.log(`📝 Generated ${snapshotsFile} and ${configFile}`);
-console.log(`🌍 Starting Percy with ${PARALLEL_WORKERS} workers...`);
+console.log(`📝 Generated configs.`);
+console.log(`🌍 Starting Percy... Workers: ${PARALLEL_WORKERS}`);
 
 try {
-  // Запускаем Percy, указывая ДВА файла: список URL и файл настроек
+  // ВАЖНО: --network-idle-timeout здесь работает как "Максимальное время ожидания" (60 сек)
   execSync(
-    `npx percy snapshot ${snapshotsFile} --config ${configFile}`, 
+    `npx percy snapshot ${snapshotsFile} --config ${configFile} --network-idle-timeout=60000`, 
     {
       stdio: "inherit",
       env: {
@@ -139,10 +136,8 @@ try {
   console.log("✅ Percy completed successfully.");
 } catch (err) {
   console.error("❌ Percy failed.");
-  // process.exit(1) нужен, чтобы GitHub Action покраснел
   process.exit(1);
 } finally {
-  // Чистим за собой
   if (fs.existsSync(snapshotsFile)) fs.unlinkSync(snapshotsFile);
   if (fs.existsSync(configFile)) fs.unlinkSync(configFile);
 }
