@@ -120,7 +120,7 @@ console.log(`📝 Generated configs.`);
 console.log(`🌍 Starting Percy... Workers: ${PARALLEL_WORKERS}`);
 
 try {
-  // Мы используем ENV переменную для таймаута, так как флаг может конфликтовать с конфигом
+  // Используем ENV переменную для таймаута ожидания network idle
   execSync(
     `npx percy snapshot ${snapshotsFile} --config ${configFile}`, 
     {
@@ -129,9 +129,8 @@ try {
         ...process.env,
         PERCY_TOKEN: token,
         PERCY_PARALLEL_WORKERS: PARALLEL_WORKERS,
-        // ВОТ ПРАВИЛЬНОЕ МЕСТО ДЛЯ ТАЙМАУТА:
-        // Устанавливаем 60 секунд (60000ms) глобального ожидания
-        PERCY_NETWORK_IDLE_TIMEOUT: "60000"
+        // Увеличиваем ожидание network idle (60 секунд)
+        PERCY_NETWORK_IDLE_WAIT_TIMEOUT: "60000"
       },
     }
   );
