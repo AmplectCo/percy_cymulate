@@ -10,7 +10,8 @@ const token = process.env.PERCY_TOKEN;
 // Оставляем 2 потока для стабильности
 const PARALLEL_WORKERS = process.env.PERCY_PARALLEL_WORKERS || "2";
 const NETWORK_IDLE_WAIT_TIMEOUT =
-  process.env.PERCY_NETWORK_IDLE_WAIT_TIMEOUT || "60000";
+  process.env.PERCY_NETWORK_IDLE_WAIT_TIMEOUT || "90000";
+const PAGE_LOAD_TIMEOUT = process.env.PERCY_PAGE_LOAD_TIMEOUT || "90000";
 
 if (!baseUrl || !token) {
   console.error("❌ BASE_URL or PERCY_TOKEN is missing.");
@@ -95,6 +96,13 @@ const snapshotsData = {
     },
     // CSS скрывает лишнее
     percyCSS: "iframe, .cy-featured-posts, .cy-customers-archive, .cy-sticky-post, #onetrust-consent-sdk, #INDWrap, #chat-widget, .cy-animation-bar__progress-value, .cy-animation-number__value { display: none !important; }",
+    // Убираем тяжелые медиа-узлы до рендера
+    domTransformation: [
+      {
+        action: "remove",
+        selector: "iframe, video, audio, source[type^='video/']"
+      }
+    ],
   })),
 };
 
@@ -123,6 +131,7 @@ console.log(`🌍 Starting Percy... Workers: ${PARALLEL_WORKERS}`);
 console.log(
   `⏱️ Network idle wait timeout: ${NETWORK_IDLE_WAIT_TIMEOUT}ms`
 );
+console.log(`⏱️ Page load timeout: ${PAGE_LOAD_TIMEOUT}ms`);
 
 try {
   // Используем ENV переменную для таймаута ожидания network idle
@@ -134,8 +143,9 @@ try {
         ...process.env,
         PERCY_TOKEN: token,
         PERCY_PARALLEL_WORKERS: PARALLEL_WORKERS,
-        // Увеличиваем ожидание network idle (60 секунд)
-        PERCY_NETWORK_IDLE_WAIT_TIMEOUT: NETWORK_IDLE_WAIT_TIMEOUT
+        // Увеличиваем ожидание network idle (90 секунд)
+        PERCY_NETWORK_IDLE_WAIT_TIMEOUT: NETWORK_IDLE_WAIT_TIMEOUT,
+        PERCY_PAGE_LOAD_TIMEOUT: PAGE_LOAD_TIMEOUT
       },
     }
   );
