@@ -6,7 +6,7 @@ on:
       - master
       - main
   schedule:
-    - cron: "0 15 * * *"
+    - cron: "30 13 * * *"  # every day at 13:30 UTC 
   workflow_dispatch: # can be run manually from UI
 jobs:
   percy:
