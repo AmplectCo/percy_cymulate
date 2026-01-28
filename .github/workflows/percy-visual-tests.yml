@@ -46,26 +46,29 @@ jobs:
       - name: Determine Webhook URL
         if: always()
         id: webhook
+        env:
+          WEBHOOK_INTERNAL: ${{ secrets.SLACK_WEBHOOK_INTERNAL }}
+          WEBHOOK_CLIENT: ${{ secrets.SLACK_WEBHOOK_CLIENT }}
         run: |
           if [[ "${{ github.event_name }}" == "schedule" ]]; then
             if [[ "${{ github.event.schedule }}" == "0 14 * * *" ]]; then
-              echo "url=${{ secrets.SLACK_WEBHOOK_INTERNAL }}" >> $GITHUB_OUTPUT
+              echo "url=$WEBHOOK_INTERNAL" >> $GITHUB_OUTPUT
               echo "target=Internal" >> $GITHUB_OUTPUT
             else
-              echo "url=${{ secrets.SLACK_WEBHOOK_CLIENT }}" >> $GITHUB_OUTPUT
+              echo "url=$WEBHOOK_CLIENT" >> $GITHUB_OUTPUT
               echo "target=Client" >> $GITHUB_OUTPUT
             fi
           elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             if [[ "${{ github.event.inputs.target }}" == "internal" ]]; then
-              echo "url=${{ secrets.SLACK_WEBHOOK_INTERNAL }}" >> $GITHUB_OUTPUT
+              echo "url=$WEBHOOK_INTERNAL" >> $GITHUB_OUTPUT
               echo "target=Internal" >> $GITHUB_OUTPUT
             else
-              echo "url=${{ secrets.SLACK_WEBHOOK_CLIENT }}" >> $GITHUB_OUTPUT
+              echo "url=$WEBHOOK_CLIENT" >> $GITHUB_OUTPUT
               echo "target=Client" >> $GITHUB_OUTPUT
             fi
           else
             # Default for push or others
-            echo "url=${{ secrets.SLACK_WEBHOOK_INTERNAL }}" >> $GITHUB_OUTPUT
+            echo "url=$WEBHOOK_INTERNAL" >> $GITHUB_OUTPUT
             echo "target=Internal" >> $GITHUB_OUTPUT
           fi
 
