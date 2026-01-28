@@ -36,7 +36,14 @@ jobs:
         run: npm ci
 
       - name: Run Percy snapshots
-        run: npm test
+        id: run_percy
+        run: |
+          npm test | tee percy_log.txt
+          echo "total_snapshots=$(grep -oP 'TOTAL_SNAPSHOTS=\K\d+' percy_log.txt)" >> $GITHUB_OUTPUT
+          # Попытка вытащить URL билда из лога Percy
+          BUILD_URL=$(grep -o 'https://percy.io/[^ ]*' percy_log.txt | tail -n 1)
+          if [ -z "$BUILD_URL" ]; then BUILD_URL="https://percy.io/a16120b7/web/Cymulate-amplect-4f87defc"; fi
+          echo "percy_url=$BUILD_URL" >> $GITHUB_OUTPUT
         env:
           PERCY_TOKEN: ${{ secrets.PERCY_TOKEN }}
           BASE_URL: ${{ secrets.BASE_URL }}
@@ -67,7 +74,6 @@ jobs:
               echo "target=Client" >> $GITHUB_OUTPUT
             fi
           else
-            # Default for push or others
             echo "url=$WEBHOOK_INTERNAL" >> $GITHUB_OUTPUT
             echo "target=Internal" >> $GITHUB_OUTPUT
           fi
@@ -79,16 +85,24 @@ jobs:
           COLOR="good"
           if [[ "$STATUS" != "success" ]]; then COLOR="danger"; fi
           
-          PERCY_URL="https://percy.io/Amplect/cymulate-amplect" # Replace with actual Percy project URL if different
+          TOTAL="${{ steps.run_percy.outputs.total_snapshots }}"
+          PERCY_URL="${{ steps.run_percy.outputs.percy_url }}"
+          TARGET="${{ steps.webhook.outputs.target }}"
+          
+          # Формируем сообщение, похожее на оригинальное
+          # Мы не можем точно знать кол-во изменений без ожидания обработки, 
+          # поэтому пишем информативный статус.
           
           curl -X POST -H 'Content-type: application/json' --data "{
             \"attachments\": [
               {
-                \"fallback\": \"Percy Visual Tests Finished: $STATUS\",
+                \"fallback\": \"Percy Build Finished: $STATUS\",
                 \"color\": \"$COLOR\",
-                \"title\": \"Percy Visual Tests - ${{ steps.webhook.outputs.target }}\",
-                \"text\": \"Status: $STATUS\nBuild: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|GitHub Action>\nPercy: <$PERCY_URL|Percy Dashboard>\",
-                \"footer\": \"Percy Scan Workflow\"
+                \"title\": \"Cymulate-amplect: Build finished ($TARGET)\",
+                \"title_link\": \"$PERCY_URL\",
+                \"text\": \"• *$TOTAL* total snapshots\n• Status: *$STATUS*\",
+                \"footer\": \"Percy Visual Tests | <$PERCY_URL|Review Snapshots>\",
+                \"footer_icon\": \"https://percy.io/favicon.ico\"
               }
             ]
           }" ${{ steps.webhook.outputs.url }}

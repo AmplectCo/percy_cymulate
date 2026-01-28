@@ -90,7 +90,7 @@ const snapshotsData = {
   snapshots: fullUrls.map((u) => ({
     name: u,
     url: u,
-    waitForTimeout: 1000, 
+    waitForTimeout: 1000,
     execute: {
       beforeSnapshot: waitForAssetsScript,
     },
@@ -128,8 +128,9 @@ console.log(`⏱️ Page load timeout: ${PAGE_LOAD_TIMEOUT}ms`);
 
 try {
   // Используем ENV переменную для таймаута ожидания network idle
+  console.log(`TOTAL_SNAPSHOTS=${urls.length}`);
   execSync(
-    `npx percy snapshot ${snapshotsFile} --config ${configFile}`, 
+    `npx percy snapshot ${snapshotsFile} --config ${configFile}`,
     {
       stdio: "inherit",
       env: {
