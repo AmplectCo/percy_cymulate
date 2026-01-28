@@ -1,13 +1,24 @@
 name: Percy Visual Regression Tests
 
 on:
-  push: # to activate workflow
+  push:
     branches:
       - master
       - main
   schedule:
-    - cron: "30 13 * * *"  # every day at 13:30 UTC 
-  workflow_dispatch: # can be run manually from UI
+    - cron: "0 14 * * *"  # 17:00 Minsk (Internal)
+    - cron: "0 19 * * *"  # 22:00 Minsk (Client)
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Target Channel (internal/client)'
+        required: true
+        default: 'internal'
+        type: choice
+        options:
+          - internal
+          - client
+
 jobs:
   percy:
     runs-on: ubuntu-latest
@@ -31,3 +42,50 @@ jobs:
           BASE_URL: ${{ secrets.BASE_URL }}
           PERCY_NETWORK_IDLE_WAIT_TIMEOUT: "90000"
           PERCY_PAGE_LOAD_TIMEOUT: "90000"
+
+      - name: Determine Webhook URL
+        if: always()
+        id: webhook
+        run: |
+          if [[ "${{ github.event_name }}" == "schedule" ]]; then
+            if [[ "${{ github.event.schedule }}" == "0 14 * * *" ]]; then
+              echo "url=${{ secrets.SLACK_WEBHOOK_INTERNAL }}" >> $GITHUB_OUTPUT
+              echo "target=Internal" >> $GITHUB_OUTPUT
+            else
+              echo "url=${{ secrets.SLACK_WEBHOOK_CLIENT }}" >> $GITHUB_OUTPUT
+              echo "target=Client" >> $GITHUB_OUTPUT
+            fi
+          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            if [[ "${{ github.event.inputs.target }}" == "internal" ]]; then
+              echo "url=${{ secrets.SLACK_WEBHOOK_INTERNAL }}" >> $GITHUB_OUTPUT
+              echo "target=Internal" >> $GITHUB_OUTPUT
+            else
+              echo "url=${{ secrets.SLACK_WEBHOOK_CLIENT }}" >> $GITHUB_OUTPUT
+              echo "target=Client" >> $GITHUB_OUTPUT
+            fi
+          else
+            # Default for push or others
+            echo "url=${{ secrets.SLACK_WEBHOOK_INTERNAL }}" >> $GITHUB_OUTPUT
+            echo "target=Internal" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Send Notification
+        if: always() && steps.webhook.outputs.url != ''
+        run: |
+          STATUS="${{ job.status }}"
+          COLOR="good"
+          if [[ "$STATUS" != "success" ]]; then COLOR="danger"; fi
+          
+          PERCY_URL="https://percy.io/Amplect/cymulate-amplect" # Replace with actual Percy project URL if different
+          
+          curl -X POST -H 'Content-type: application/json' --data "{
+            \"attachments\": [
+              {
+                \"fallback\": \"Percy Visual Tests Finished: $STATUS\",
+                \"color\": \"$COLOR\",
+                \"title\": \"Percy Visual Tests - ${{ steps.webhook.outputs.target }}\",
+                \"text\": \"Status: $STATUS\nBuild: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|GitHub Action>\nPercy: <$PERCY_URL|Percy Dashboard>\",
+                \"footer\": \"Percy Scan Workflow\"
+              }
+            ]
+          }" ${{ steps.webhook.outputs.url }}
