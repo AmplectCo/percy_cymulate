@@ -40,7 +40,7 @@ jobs:
         run: |
           npm test | tee percy_log.txt
           echo "total_snapshots=$(grep -oP 'TOTAL_SNAPSHOTS=\K\d+' percy_log.txt)" >> $GITHUB_OUTPUT
-          # Попытка вытащить URL билда из лога Percy
+          # Attempt to extract the build URL from the Percy log
           BUILD_URL=$(grep -o 'https://percy.io/[^ ]*' percy_log.txt | tail -n 1)
           if [ -z "$BUILD_URL" ]; then BUILD_URL="https://percy.io/a16120b7/web/Cymulate-amplect-4f87defc"; fi
           echo "percy_url=$BUILD_URL" >> $GITHUB_OUTPUT
@@ -89,9 +89,9 @@ jobs:
           PERCY_URL="${{ steps.run_percy.outputs.percy_url }}"
           TARGET="${{ steps.webhook.outputs.target }}"
           
-          # Формируем сообщение, похожее на оригинальное
-          # Мы не можем точно знать кол-во изменений без ожидания обработки, 
-          # поэтому пишем информативный статус.
+          # Format the message to look like the original
+          # We cannot know the exact number of changes without waiting for processing,
+          # so we provide an informative status.
           
           curl -X POST -H 'Content-type: application/json' --data "{
             \"attachments\": [

@@ -7,7 +7,7 @@ loadEnv();
 
 const baseUrl = process.env.BASE_URL;
 const token = process.env.PERCY_TOKEN;
-// Оставляем 2 потока для стабильности
+// Keep 2 parallel workers for stability
 const PARALLEL_WORKERS = process.env.PERCY_PARALLEL_WORKERS || "2";
 const NETWORK_IDLE_WAIT_TIMEOUT =
   process.env.PERCY_NETWORK_IDLE_WAIT_TIMEOUT || "90000";
@@ -61,7 +61,7 @@ const fullUrls = urls.map((p) => {
   return u + p;
 });
 
-// Скрипт прокрутки (без изменений)
+// Scroll script (unchanged)
 const waitForAssetsScript = `
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   const scrollStep = window.innerHeight || 800;
@@ -85,7 +85,7 @@ const waitForAssetsScript = `
   await sleep(1000); 
 `;
 
-// --- ФАЙЛ 1: Список снимков ---
+// --- FILE 1: Snapshot List ---
 const snapshotsData = {
   snapshots: fullUrls.map((u) => ({
     name: u,
@@ -94,12 +94,12 @@ const snapshotsData = {
     execute: {
       beforeSnapshot: waitForAssetsScript,
     },
-    // CSS скрывает лишнее
+    // CSS to hide irrelevant elements
     percyCSS: "iframe, .cy-featured-posts, .cy-customers-archive, .cy-sticky-post, #onetrust-consent-sdk, #INDWrap, #chat-widget, .cy-animation-bar__progress-value, .cy-animation-number__value { display: none !important; }",
   })),
 };
 
-// --- ФАЙЛ 2: Глобальный конфиг ---
+// --- FILE 2: Global Config ---
 const configData = {
   version: 2,
   snapshot: {
@@ -107,8 +107,8 @@ const configData = {
     browsers: ["chrome", "safari"]
   },
   discovery: {
-    // ВАЖНО: УБРАЛИ networkIdleTimeout ОТСЮДА!
-    // Оставляем только User-Agent для Cloudflare
+    // IMPORTANT: removed networkIdleTimeout from here!
+    // Keeping only User-Agent for Cloudflare
     userAgent: "PercyBot/1.0",
   }
 };
@@ -127,7 +127,7 @@ console.log(
 console.log(`⏱️ Page load timeout: ${PAGE_LOAD_TIMEOUT}ms`);
 
 try {
-  // Используем ENV переменную для таймаута ожидания network idle
+  // Use ENV variable for network idle timeout
   console.log(`TOTAL_SNAPSHOTS=${urls.length}`);
   execSync(
     `npx percy snapshot ${snapshotsFile} --config ${configFile}`,
@@ -137,7 +137,7 @@ try {
         ...process.env,
         PERCY_TOKEN: token,
         PERCY_PARALLEL_WORKERS: PARALLEL_WORKERS,
-        // Увеличиваем ожидание network idle (90 секунд)
+        // Increase network idle wait timeout (90 seconds)
         PERCY_NETWORK_IDLE_WAIT_TIMEOUT: NETWORK_IDLE_WAIT_TIMEOUT,
         PERCY_PAGE_LOAD_TIMEOUT: PAGE_LOAD_TIMEOUT
       },
