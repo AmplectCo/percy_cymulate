@@ -104,7 +104,7 @@ const configData = {
   version: 2,
   snapshot: {
     widths: [1920, 414],
-    browsers: ["chrome", "safari"]
+    browsers: ["chrome"]
   },
   discovery: {
     // IMPORTANT: removed networkIdleTimeout from here!
