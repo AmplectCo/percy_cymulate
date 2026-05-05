@@ -6,7 +6,7 @@ on:
       - master
       - main
   schedule:
-    - cron: "0 14 * * *"  # 17:00 Minsk (Internal)
+    - cron: "0 13 * * *"  # 16:00 Minsk (Internal)
     - cron: "0 19 * * *"  # 22:00 Minsk (Client)
   workflow_dispatch:
     inputs:
@@ -58,7 +58,7 @@ jobs:
           WEBHOOK_CLIENT: ${{ secrets.SLACK_WEBHOOK_CLIENT }}
         run: |
           if [[ "${{ github.event_name }}" == "schedule" ]]; then
-            if [[ "${{ github.event.schedule }}" == "0 14 * * *" ]]; then
+            if [[ "${{ github.event.schedule }}" == "0 13 * * *" ]]; then
               echo "url=$WEBHOOK_INTERNAL" >> $GITHUB_OUTPUT
               echo "target=Internal" >> $GITHUB_OUTPUT
             else
