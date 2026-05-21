@@ -12,6 +12,7 @@ const PARALLEL_WORKERS = process.env.PERCY_PARALLEL_WORKERS || "2";
 const NETWORK_IDLE_WAIT_TIMEOUT =
   process.env.PERCY_NETWORK_IDLE_WAIT_TIMEOUT || "90000";
 const PAGE_LOAD_TIMEOUT = process.env.PERCY_PAGE_LOAD_TIMEOUT || "90000";
+const PERCY_RUN_TIMEOUT_MS = Number(process.env.PERCY_RUN_TIMEOUT_MS || 50 * 60 * 1000);
 
 if (!baseUrl || !token) {
   console.error("❌ BASE_URL or PERCY_TOKEN is missing.");
@@ -133,6 +134,7 @@ try {
     `npx percy snapshot ${snapshotsFile} --config ${configFile}`,
     {
       stdio: "inherit",
+      timeout: PERCY_RUN_TIMEOUT_MS,
       env: {
         ...process.env,
         PERCY_TOKEN: token,
