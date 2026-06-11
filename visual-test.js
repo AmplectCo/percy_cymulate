@@ -9,11 +9,9 @@ const baseUrl = process.env.BASE_URL;
 const token = process.env.PERCY_TOKEN;
 // Keep 2 parallel workers for stability
 const PARALLEL_WORKERS = Number(process.env.PERCY_PARALLEL_WORKERS || 2);
-// Cap for Percy's in-memory asset discovery cache (MB)
-const MAX_CACHE_RAM_MB = Number(process.env.PERCY_MAX_CACHE_RAM_MB || 2048);
 const NETWORK_IDLE_WAIT_TIMEOUT =
-  process.env.PERCY_NETWORK_IDLE_WAIT_TIMEOUT || "90000";
-const PAGE_LOAD_TIMEOUT = process.env.PERCY_PAGE_LOAD_TIMEOUT || "90000";
+  process.env.PERCY_NETWORK_IDLE_WAIT_TIMEOUT || "60000";
+const PAGE_LOAD_TIMEOUT = process.env.PERCY_PAGE_LOAD_TIMEOUT || "60000";
 const PERCY_RUN_TIMEOUT_MS = Number(process.env.PERCY_RUN_TIMEOUT_MS || 50 * 60 * 1000);
 
 if (!baseUrl || !token) {
@@ -125,7 +123,6 @@ fs.writeFileSync(configFile, yaml.dump(configData));
 
 console.log(`📝 Generated configs.`);
 console.log(`🌍 Starting Percy... Workers: ${PARALLEL_WORKERS}`);
-console.log(`🧠 Max discovery cache RAM: ${MAX_CACHE_RAM_MB}MB`);
 console.log(
   `⏱️ Network idle wait timeout: ${NETWORK_IDLE_WAIT_TIMEOUT}ms`
 );
@@ -135,14 +132,13 @@ try {
   // Use ENV variable for network idle timeout
   console.log(`TOTAL_SNAPSHOTS=${urls.length}`);
   execSync(
-    `npx percy snapshot ${snapshotsFile} --config ${configFile} --max-cache-ram ${MAX_CACHE_RAM_MB}`,
+    `npx percy snapshot ${snapshotsFile} --config ${configFile}`,
     {
       stdio: "inherit",
       timeout: PERCY_RUN_TIMEOUT_MS,
       env: {
         ...process.env,
         PERCY_TOKEN: token,
-        // Increase network idle wait timeout (90 seconds)
         PERCY_NETWORK_IDLE_WAIT_TIMEOUT: NETWORK_IDLE_WAIT_TIMEOUT,
         PERCY_PAGE_LOAD_TIMEOUT: PAGE_LOAD_TIMEOUT
       },
