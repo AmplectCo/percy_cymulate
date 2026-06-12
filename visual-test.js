@@ -100,6 +100,60 @@ const snapshotsData = {
   })),
 };
 
+// Third-party hosts aborted during asset discovery. They are invisible in
+// snapshots (widgets/iframes are hidden via percyCSS), but their ~900 requests
+// per few pages starved the CI runner's network, so same-origin assets could
+// not finish within the idle budget ("Timed out waiting for network requests
+// to idle").
+const disallowedHostnames = [
+  // tag managers / analytics
+  "www.googletagmanager.com",
+  "*.google-analytics.com",
+  "analytics.google.com",
+  "*.doubleclick.net",
+  "*.hotjar.com",
+  "*.hotjar.io",
+  "*.posthog.com",
+  "analytics.ahrefs.com",
+  // B2B intent / identity trackers
+  "*.6sc.co",
+  "*.6sense.com",
+  "*.vector.co",
+  "api.usergems.com",
+  "ug-webapp-public-production.s3.amazonaws.com",
+  "a.usbrowserspeed.com",
+  "a.remarketstats.com",
+  "s.ml-attr.com",
+  "tracking-api.g2.com",
+  "tracking.g2crowd.com",
+  // ad / social pixels
+  "px.ads.linkedin.com",
+  "snap.licdn.com",
+  "connect.facebook.net",
+  "www.facebook.com",
+  "t.co",
+  "analytics.twitter.com",
+  "static.ads-twitter.com",
+  "*.quora.com",
+  "static.oktopost.com",
+  "okt.to",
+  // HubSpot tracking only (forms/CTAs stay allowed)
+  "track.hubspot.com",
+  "js.hs-analytics.net",
+  "js.hsadspixel.net",
+  // A/B testing — blocking also keeps snapshots on the control variant
+  "*.visualwebsiteoptimizer.com",
+  // widgets already hidden via percyCSS (iframes, #INDWrap, #chat-widget)
+  "*.supademo.com",
+  "*.salespeak.ai",
+  "salespeak-public-serving.s3.amazonaws.com",
+  "js.storylane.io",
+  "cdn.equalweb.com",
+  // consent banner (hidden via percyCSS)
+  "cookie-cdn.cookiepro.com",
+  "geolocation.onetrust.com",
+];
+
 // --- FILE 2: Global Config ---
 const configData = {
   version: 2,
@@ -112,6 +166,7 @@ const configData = {
     // Keeping only User-Agent for Cloudflare
     userAgent: "PercyBot/1.0",
     concurrency: PARALLEL_WORKERS,
+    disallowedHostnames,
   }
 };
 
